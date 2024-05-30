@@ -138,11 +138,11 @@ impl<'a> CameraSensor<'a> {
     pub fn set_lenc(&self, enable: bool) -> Result<(), EspError> {
         esp!(unsafe { (*self.sensor).set_lenc.unwrap()(self.sensor, if enable { 1 } else { 0 }) })
     }
-    pub fn get_reg(&self, reg: i32, mask: i32) -> Result<(), EspError> {
-        esp!(unsafe { (*self.sensor).get_reg.unwrap()(self.sensor, reg, mask) })
+    pub fn get_reg(&self, reg: u16, mask: u8) -> u8 {
+        unsafe { (*self.sensor).get_reg.unwrap()(self.sensor, reg as i32, mask as i32) as u8 }
     }
-    pub fn set_reg(&self, reg: i32, mask: i32, value: i32) -> Result<(), EspError> {
-        esp!(unsafe { (*self.sensor).set_reg.unwrap()(self.sensor, reg, mask, value) })
+    pub fn set_reg(&self, reg: u16, mask: u8, value: u8) -> Result<(), EspError> {
+        esp!(unsafe { (*self.sensor).set_reg.unwrap()(self.sensor, reg as i32, mask as i32, value as i32) })
     }
     pub fn set_res_raw(
         &self,
@@ -216,6 +216,8 @@ impl<'a> Camera<'a> {
         pin_pwdn: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_reset: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_xclk: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
+        pin_sccb_sda: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
+        pin_sccb_scl: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_d0: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_d1: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_d2: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
@@ -227,15 +229,26 @@ impl<'a> Camera<'a> {
         pin_vsync: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_href: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_pclk: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
+        xmclk_freq_hz: i32,
+        jpeg_quality: i32,
+        frame_buffer_count: usize,
+        grab_mode: camera::camera_grab_mode_t,
+        frame_size: camera::framesize_t,
     ) -> Result<Self, esp_idf_sys::EspError> {
         esp_idf_hal::into_ref!(
-            pin_pwdn, pin_reset, pin_xclk, pin_d0, pin_d1, pin_d2, pin_d3, pin_d4, pin_d5, pin_d6,
+            pin_pwdn, pin_reset, pin_xclk, pin_sccb_sda, pin_sccb_scl, pin_d0, pin_d1, pin_d2, pin_d3, pin_d4, pin_d5, pin_d6,
             pin_d7, pin_vsync, pin_href, pin_pclk
         );
         let config = camera::camera_config_t {
             pin_pwdn: pin_pwdn.pin(),
             pin_reset: pin_reset.pin(),
             pin_xclk: pin_xclk.pin(),
+            __bindgen_anon_1: esp_idf_sys::camera::camera_config_t__bindgen_ty_1 {
+                pin_sscb_sda: pin_sccb_sda.pin(),
+            },
+            __bindgen_anon_2: esp_idf_sys::camera::camera_config_t__bindgen_ty_2 {
+                pin_sscb_scl: pin_sccb_scl.pin(),
+            },    
 
             pin_d0: pin_d0.pin(),
             pin_d1: pin_d1.pin(),
@@ -249,16 +262,16 @@ impl<'a> Camera<'a> {
             pin_href: pin_href.pin(),
             pin_pclk: pin_pclk.pin(),
 
-            xclk_freq_hz: 20000000,
+            xclk_freq_hz: xmclk_freq_hz,
             ledc_timer: esp_idf_sys::ledc_timer_t_LEDC_TIMER_0,
             ledc_channel: esp_idf_sys::ledc_channel_t_LEDC_CHANNEL_0,
 
-            pixel_format: camera::pixformat_t_PIXFORMAT_RGB565,
-            frame_size: camera::framesize_t_FRAMESIZE_QVGA,
+            pixel_format: camera::pixformat_t_PIXFORMAT_JPEG,
+            frame_size: frame_size,
 
-            jpeg_quality: 12,
-            fb_count: 1,
-            grab_mode: camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,
+            jpeg_quality: jpeg_quality,
+            fb_count: frame_buffer_count,
+            grab_mode: grab_mode,
 
             ..Default::default()
         };
@@ -284,6 +297,10 @@ impl<'a> Camera<'a> {
             sensor: unsafe { camera::esp_camera_sensor_get() },
             _p: PhantomData,
         }
+    }
+
+    pub fn return_framebuffer(&self, fb: FrameBuffer) {
+        unsafe { camera::esp_camera_fb_return(fb.fb) }
     }
 }
 
