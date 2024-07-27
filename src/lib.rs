@@ -213,8 +213,8 @@ pub struct Camera<'a> {
 
 impl<'a> Camera<'a> {
     pub fn new(
-        pin_pwdn: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
-        pin_reset: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
+        // pin_pwdn: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
+        // pin_reset: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_xclk: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_sccb_sda: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_sccb_scl: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
@@ -236,12 +236,12 @@ impl<'a> Camera<'a> {
         frame_size: camera::framesize_t,
     ) -> Result<Self, esp_idf_sys::EspError> {
         esp_idf_hal::into_ref!(
-            pin_pwdn, pin_reset, pin_xclk, pin_sccb_sda, pin_sccb_scl, pin_d0, pin_d1, pin_d2, pin_d3, pin_d4, pin_d5, pin_d6,
+            /*pin_pwdn, pin_reset,*/ pin_xclk, pin_sccb_sda, pin_sccb_scl, pin_d0, pin_d1, pin_d2, pin_d3, pin_d4, pin_d5, pin_d6,
             pin_d7, pin_vsync, pin_href, pin_pclk
         );
         let config = camera::camera_config_t {
-            pin_pwdn: pin_pwdn.pin(),
-            pin_reset: pin_reset.pin(),
+            pin_pwdn: -1,
+            pin_reset: -1,
             pin_xclk: pin_xclk.pin(),
             __bindgen_anon_1: esp_idf_sys::camera::camera_config_t__bindgen_ty_1 {
                 pin_sscb_sda: pin_sccb_sda.pin(),
@@ -301,6 +301,10 @@ impl<'a> Camera<'a> {
 
     pub fn return_framebuffer(&self, fb: FrameBuffer) {
         unsafe { camera::esp_camera_fb_return(fb.fb) }
+    }
+
+    pub fn return_all_framebuffers(&self) {
+        unsafe { camera::esp_camera_return_all() }
     }
 }
 
