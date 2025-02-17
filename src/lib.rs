@@ -29,6 +29,18 @@ impl<'a> FrameBuffer<'a> {
     pub fn timestamp(&self) -> camera::timeval {
         unsafe { (*self.fb).timestamp }
     }
+
+    // Taken from this fork (MIT): https://github.com/mohsenasm/esp-camera-rs
+    pub fn fb_return(&self) {
+        unsafe { camera::esp_camera_fb_return(self.fb) }
+    }
+}
+
+// Taken from this fork (MIT): https://github.com/mohsenasm/esp-camera-rs
+impl Drop for FrameBuffer<'_> {
+    fn drop(&mut self) {
+        self.fb_return();
+    }
 }
 
 pub struct CameraSensor<'a> {
@@ -213,7 +225,7 @@ pub struct Camera<'a> {
 
 impl<'a> Camera<'a> {
     pub fn new(
-        // pin_pwdn: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
+        pin_pwdn: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         // pin_reset: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_xclk: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_sccb_sda: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
@@ -221,11 +233,11 @@ impl<'a> Camera<'a> {
         pin_d0: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_d1: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_d2: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
-        pin_d3: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
-        pin_d4: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
-        pin_d5: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
-        pin_d6: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
-        pin_d7: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
+        pin_d3: impl Peripheral<P = impl InputPin> + 'a,
+        pin_d4: impl Peripheral<P = impl InputPin> + 'a,
+        pin_d5: impl Peripheral<P = impl InputPin> + 'a,
+        pin_d6: impl Peripheral<P = impl InputPin> + 'a,
+        pin_d7: impl Peripheral<P = impl InputPin> + 'a,
         pin_vsync: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_href: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_pclk: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
@@ -236,11 +248,11 @@ impl<'a> Camera<'a> {
         frame_size: camera::framesize_t,
     ) -> Result<Self, esp_idf_sys::EspError> {
         esp_idf_hal::into_ref!(
-            /*pin_pwdn, pin_reset,*/ pin_xclk, pin_sccb_sda, pin_sccb_scl, pin_d0, pin_d1, pin_d2, pin_d3, pin_d4, pin_d5, pin_d6,
+            pin_pwdn, /* pin_reset, */ pin_xclk, pin_sccb_sda, pin_sccb_scl, pin_d0, pin_d1, pin_d2, pin_d3, pin_d4, pin_d5, pin_d6,
             pin_d7, pin_vsync, pin_href, pin_pclk
         );
         let config = camera::camera_config_t {
-            pin_pwdn: -1,
+            pin_pwdn: pin_pwdn.pin(),
             pin_reset: -1,
             pin_xclk: pin_xclk.pin(),
             __bindgen_anon_1: esp_idf_sys::camera::camera_config_t__bindgen_ty_1 {
